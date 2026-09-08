@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <title>Notes for Life</title>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="%23ffe566"/><rect width="32" height="7" fill="%23e8d04a"/></svg>' />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="board" id="board">
+      <div class="world" id="world"></div>
+    </div>
+    <button type="button" class="add-note" id="add" hidden aria-label="Add a note">
+      <span class="add-sheet" data-layer="2" aria-hidden="true"></span>
+      <span class="add-sheet" data-layer="1" aria-hidden="true"></span>
+      <span class="add-sheet add-sheet--top" data-layer="0" aria-hidden="true"></span>
+    </button>
+    <button type="button" class="reset" id="reset">start over</button>
+    <script src="app.js"></script>
+  </body>
+</html>
