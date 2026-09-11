@@ -216,6 +216,7 @@
   applyCam();
   initDock();
   initPeelLab();
+  if (!notes.length) seedStarterNotes();
   notes.forEach((note) => mount(note));
   // Browsers may restore focus into a note after refresh; keep startup unselected.
   releaseNoteFocus();
@@ -233,6 +234,9 @@
     cam.z = ZOOM;
     applyCam();
     resetDockColors();
+    seedStarterNotes();
+    notes.forEach((note) => mount(note));
+    releaseNoteFocus();
   });
 
   function syncViewToggle() {
@@ -347,15 +351,15 @@
     };
   }
 
-  function createNote({ x = 0, y = 0, paper, band } = {}) {
+  function createNote({ x = 0, y = 0, paper, band, text = "", source = "", createdAt } = {}) {
     const palette = paper
       ? paletteFor(paper)
       : PAPERS[notes.length % PAPERS.length];
     const note = {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
-      text: "",
-      source: "",
-      createdAt: new Date().toISOString(),
+      text,
+      source,
+      createdAt: createdAt || new Date().toISOString(),
       x,
       y,
       paper: paper || palette.paper,
@@ -363,6 +367,40 @@
     };
     notes.push(note);
     return note;
+  }
+
+  function seedStarterNotes() {
+    const base = Date.now();
+    const starters = [
+      {
+        text: "This is a note.",
+        x: -320,
+        y: 40,
+        paper: "#F3CD6F",
+        band: "#e0ba5a",
+      },
+      {
+        text: "You can move them around like a whiteboard...",
+        x: 40,
+        y: -230,
+        paper: "#64D183",
+        band: "#52be71",
+      },
+      {
+        text: "...and create new ones!",
+        x: 300,
+        y: 190,
+        paper: "#66A9ED",
+        band: "#5498d9",
+      },
+    ];
+    starters.forEach((item, i) => {
+      createNote({
+        ...item,
+        createdAt: new Date(base + i * 1000).toISOString(),
+      });
+    });
+    persist();
   }
 
   function mount(note, { autofocus = false } = {}) {
