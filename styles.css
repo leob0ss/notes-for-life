@@ -1,8 +1,43 @@
 :root {
-  --board-top: #ffffff;
-  --board-bottom: #ffffff;
+  --bg: #f3f3f3;
+  --dock: #fff;
+  --bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='2' fill='%23e4e4e4'/%3E%3C/svg%3E");
   --ink: #241f18;
   --shadow: rgba(42, 36, 28, 0.16);
+  --scrim: rgba(243, 243, 243, 0.35);
+  --dock-border: #cccccc50;
+
+  /* Stack peel lab — tweak via #peelLab */
+  --stack-fly-x: -100%;
+  --stack-fly-y: -123%;
+  --stack-fly-scale: 1.3;
+  --stack-ms: 1000ms;
+  --stack-origin-x: 12%;
+  --stack-origin-y: 10%;
+  --stack-rx: 59deg;
+  --stack-sky: -26deg;
+  --stack-skx: 6deg;
+  --stack-rz: 16deg;
+  --stack-tl-x: 0%;
+  --stack-tl-y: 0%;
+  --stack-tr-x: 100%;
+  --stack-tr-y: 0%;
+  --stack-br-x: 158%;
+  --stack-br-y: 148%;
+  --stack-bl-x: 0%;
+  --stack-bl-y: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111;
+    --dock: #1d1d1d;
+    --bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='2' fill='%23ffffff09'/%3E%3C/svg%3E");
+    --ink: #f2eee6;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --scrim: rgba(0, 0, 0, 0.35);
+    --dock-border: #ffffff18;
+  }
 }
 
 @property --peel {
@@ -31,9 +66,9 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
-  background: #fff;
+  background: var(--bg);
   color: var(--ink);
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 .board {
@@ -42,28 +77,15 @@ body {
   overflow: hidden;
   cursor: grab;
   touch-action: none;
-  background-color: #fff;
+  background: var(--bg);
 }
 
 .board::before {
-  content: "";
-  position: absolute;
-  inset: -12px;
-  z-index: 0;
-  pointer-events: none;
-  background-color: #fff;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
-  transition: filter 0.35s ease;
+  content: none;
 }
 
 .board.is-focusing {
   cursor: default;
-}
-
-.board.is-focusing::before {
-  filter: blur(2.5px);
 }
 
 .board.panning {
@@ -80,6 +102,20 @@ body {
   will-change: transform;
 }
 
+/* Board surface: dots move with notes (stuck together). */
+.world::after {
+  content: "";
+  position: absolute;
+  left: -50000px;
+  top: -50000px;
+  width: 100000px;
+  height: 100000px;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--bg);
+  background-image: var(--bg-image);
+}
+
 .world::before {
   content: "";
   position: absolute;
@@ -87,9 +123,9 @@ body {
   top: -50000px;
   width: 100000px;
   height: 100000px;
-  z-index: 15;
+  z-index: 10000;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrim);
   opacity: 0;
   transition: opacity 0.35s ease;
 }
@@ -98,37 +134,43 @@ body {
   opacity: 1;
 }
 
-.board.is-focusing .note.is-dim {
-  z-index: 1 !important;
-}
-
-.board.is-focusing .note:focus-within {
-  z-index: 20 !important;
-}
-
 .note {
   --peel: 0;
   --peel-size: 1.65rem;
   position: absolute;
+  z-index: 2;
   width: 15rem;
   height: 15rem;
   padding: 0;
   overflow: visible;
-  color: var(--ink);
-  cursor: text;
+  color: #241f18;
+  cursor: grab;
   filter: none;
   box-shadow: 0 1px 1px rgba(42, 36, 28, 0.05);
-  transform: translate(-50%, -50%);
-  /* Unstick duration (select). Stick overrides via .is-sticking */
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: 50% 50%;
+  perspective: 1000px;
+  /* Stick (blur → stuck): faster. Unstick uses :focus-within durations below. */
   transition:
-    transform 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    box-shadow 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    left 0.5s ease,
-    top 0.5s ease,
+    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
     opacity 0.35s ease,
     filter 0.35s ease,
-    --peel 0.97s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: place 0.42s ease;
+    --peel 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: place 0.35s ease;
+}
+
+/* After the initial place animation, never restart it (avoids transition flashes). */
+.note.is-mounted {
+  animation: none;
+}
+
+/* Peel lives only on the sheet — never on .note scale/translate. */
+.note-sheet {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
 }
 
 /* Soft wall shadow: y = 8px; x ramps 0 at top-right → 4px at bottom-right.
@@ -149,16 +191,18 @@ body {
   transform: translate(0, 8px);
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 100%, 4px 100%);
   transition:
-    opacity 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    filter 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    clip-path 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+    opacity 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    clip-path 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .note-paper {
   position: absolute;
   inset: 0;
-  padding: 2.85rem 1.2rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  padding: 2.85rem 1.2rem 1.85rem;
   overflow: hidden;
   background: var(--paper);
   clip-path: polygon(
@@ -180,7 +224,7 @@ body {
   background: color-mix(in srgb, var(--band) 38%, var(--paper));
   opacity: 1;
   pointer-events: none;
-  transition: opacity 0.85s ease;
+  transition: opacity 0.42s ease;
 }
 
 .note-fold {
@@ -197,23 +241,19 @@ body {
 
 .note:hover:not(:focus-within) {
   --peel: 1;
-  z-index: 20;
-}
-
-.board.is-focusing .note:hover:not(:focus-within) {
-  z-index: 1;
 }
 
 .note:focus-within {
   --peel: 0;
-  z-index: 20;
-  transform: translate(-50%, -50%) scale(2);
+  /* Above the focus scrim (inline stack z-index must not win). */
+  z-index: 10001 !important;
+  cursor: text;
   box-shadow: none;
+  transform: translate(-50%, -50%) scale(2);
+  /* Unstick (stuck → edit): ~2× stick */
   transition:
     transform 1s cubic-bezier(0.22, 0.61, 0.36, 1),
     box-shadow 1s cubic-bezier(0.22, 0.61, 0.36, 1),
-    left 0.5s ease,
-    top 0.5s ease,
     opacity 0.35s ease,
     filter 0.35s ease,
     --peel 0.97s cubic-bezier(0.4, 0, 0.2, 1);
@@ -224,34 +264,101 @@ body {
   filter: blur(34px);
   transform: translate(44px, 90px);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition:
+    opacity 1s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 1s cubic-bezier(0.22, 0.61, 0.36, 1),
+    clip-path 1s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .note:focus-within .note-paper::before {
   opacity: 0;
+  transition: opacity 0.85s ease;
 }
 
-/* Stick is 2× faster than unstick */
-.note.is-sticking {
+.note:focus-within .note-sheet {
+  animation: peel-lift 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.note.is-first-edit:focus-within .note-sheet {
+  animation: none;
+}
+
+.note.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 25;
+}
+
+.note.is-dragging::after {
+  transition: none;
+}
+
+.note.is-tearing {
+  pointer-events: none !important;
+}
+
+.note-tear-layer {
+  position: fixed;
+  z-index: 10002;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.note-tear-half {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform, opacity;
   transition:
-    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    box-shadow 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    left 0.5s ease,
-    top 0.5s ease,
-    opacity 0.35s ease,
-    filter 0.35s ease,
-    --peel 0.48s cubic-bezier(0.4, 0, 0.2, 1);
+    transform 0.78s cubic-bezier(0.33, 0.02, 0.55, 1),
+    opacity 0.72s ease;
 }
 
-.note.is-sticking::after {
-  transition:
-    opacity 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    filter 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    clip-path 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+.note-tear-half .note {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none;
 }
 
-.note.is-sticking .note-paper::before {
-  transition: opacity 0.42s ease;
+.note-tear-half .note::after {
+  display: none;
+}
+
+.note-tear-left {
+  transform-origin: 80% 40%;
+}
+
+.note-tear-right {
+  transform-origin: 20% 45%;
+}
+
+.note-tear-left.is-torn {
+  transform: translate(-42%, 110%) rotate(-38deg);
+  opacity: 0;
+}
+
+.note-tear-right.is-torn {
+  transform: translate(48%, 120%) rotate(42deg);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-tear-half {
+    transition: none;
+  }
+}
+
+@keyframes peel-lift {
+  0% {
+    transform: rotateX(0deg) skewY(0deg);
+  }
+  34% {
+    transform: rotateX(17deg) skewY(-1.6deg);
+  }
+  100% {
+    transform: rotateX(0deg) skewY(0deg);
+  }
 }
 
 .note.is-dim {
@@ -262,10 +369,20 @@ body {
   filter: blur(0.8px);
 }
 
+.note-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
 .note textarea {
   display: block;
+  flex: 1;
   width: 100%;
-  height: 100%;
+  min-height: 0;
+  height: auto;
   margin: 0;
   padding: 0;
   border: 0;
@@ -286,140 +403,340 @@ body {
   color: rgba(36, 31, 24, 0.44);
 }
 
-.add-note {
-  position: fixed;
-  right: max(1.2rem, env(safe-area-inset-right));
-  bottom: max(1.2rem, env(safe-area-inset-bottom));
-  z-index: 30;
-  width: 5rem;
-  height: 5rem;
+.note-date {
+  position: absolute;
+  top: 0;
+  left: 1.15rem;
+  right: 1.15rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  height: 2.4rem;
+  margin: 0;
+  font-family: Caveat, cursive;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1;
+  color: rgba(36, 31, 24, 0.48);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.note-source {
+  position: absolute;
+  left: 1.15rem;
+  bottom: 0.55rem;
+  z-index: 2;
+  width: calc(100% - 3.4rem);
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  cursor: pointer;
-  transform: none;
-  animation: pop 0.4s ease;
+  font-family: Caveat, cursive;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgba(36, 31, 24, 0.42);
+  caret-color: rgba(36, 31, 24, 0.55);
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, color 0.2s ease;
 }
 
-.add-note[hidden] {
+.note-source::placeholder {
+  color: rgba(36, 31, 24, 0.28);
+}
+
+.note-source:focus {
+  color: rgba(36, 31, 24, 0.58);
+}
+
+.note-delete {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.4rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(36, 31, 24, 0.38);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.note-delete .material-symbols-outlined {
+  font-size: 1.15rem;
+  line-height: 1;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.note-delete:hover,
+.note-delete:focus-visible {
+  color: rgba(36, 31, 24, 0.72);
+}
+
+.note-delete:focus-visible {
+  outline: 1.5px solid rgba(36, 31, 24, 0.45);
+  outline-offset: 2px;
+}
+
+.note:hover .note-date,
+.note:hover .note-source,
+.note:hover .note-delete,
+.note:focus-within .note-date,
+.note:focus-within .note-source,
+.note:focus-within .note-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.note.is-first-edit .note-date,
+.note.is-first-edit:hover .note-date,
+.note.is-first-edit:focus-within .note-date {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.note-date[hidden] {
   display: none;
 }
 
-.add-sheet {
-  position: absolute;
-  inset: 0.45rem;
-  border: 0;
+.dock-wrapper {
+  --dock-w: 17rem;
+  --dock-h: 6.5rem;
+  --dock-br: 1.35rem;
+  --paper-size: 7.5rem;
+  position: fixed;
+  left: 50%;
+  bottom: max(1.35rem, env(safe-area-inset-bottom));
+  z-index: 30;
+  width: var(--dock-w);
+  height: var(--dock-h);
+  max-width: calc(100% - 2rem);
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, #ffffff 58%, transparent);
+  border-radius: var(--dock-br);
   background:
     linear-gradient(
-      color-mix(in srgb, #e0c63a 38%, #ffe566) 0 28%,
-      #ffe566 28%
+      165deg,
+      color-mix(in srgb, #ffffff 52%, transparent),
+      color-mix(in srgb, #ffffff 18%, transparent) 45%,
+      color-mix(in srgb, #ffffff 28%, transparent)
     );
   box-shadow:
-    0 1px 1px rgba(42, 36, 28, 0.05),
-    0 8px 10px -6px var(--shadow);
-  transform:
-    translate(calc(var(--layer) * -4px), calc(var(--layer) * -5px))
-    rotate(calc(8deg - var(--layer) * 3deg));
-  transition: transform 0.25s ease;
+    inset 0 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset 0 -0.5px 0 color-mix(in srgb, #000000 8%, transparent),
+    0 10px 28px -14px rgba(0, 0, 0, 0.28),
+    0 2px 8px -4px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(22px) saturate(185%);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  opacity: 1;
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: pop 0.4s ease;
 }
 
-.add-sheet[data-layer="0"] {
-  --layer: 0;
-  z-index: 3;
+@media (prefers-color-scheme: dark) {
+  .dock-wrapper {
+    border-color: color-mix(in srgb, #ffffff 18%, transparent);
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in srgb, #ffffff 16%, transparent),
+        color-mix(in srgb, #ffffff 6%, transparent) 45%,
+        color-mix(in srgb, #000000 22%, transparent)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent),
+      inset 0 -0.5px 0 color-mix(in srgb, #000000 35%, transparent),
+      0 12px 30px -14px rgba(0, 0, 0, 0.55),
+      0 2px 8px -4px rgba(0, 0, 0, 0.35);
+  }
 }
 
-.add-sheet[data-layer="1"] {
-  --layer: 1;
-  z-index: 2;
+.dock-wrapper[hidden] {
+  display: none;
 }
 
-.add-sheet[data-layer="2"] {
-  --layer: 2;
+.dock-clip {
+  --pd: 10000px;
+  overflow: clip;
+  padding: var(--pd) var(--pd) 0;
+  margin: calc(var(--pd) * -1) calc(var(--pd) * -1) 0;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  flex-shrink: 0;
+  border-radius: var(--dock-br);
+}
+
+.dock {
+  position: relative;
+  width: var(--dock-w);
+  height: var(--dock-h);
+  display: flex;
+  justify-content: center;
+  border-radius: inherit;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.dock .paper-wrapper {
+  position: absolute;
+  margin-top: 1.1rem;
+  margin-left: 2.6rem;
+  transform-origin: 0% 100%;
+  transition: transform 0.4s ease, margin 0.4s ease;
+  pointer-events: none;
+}
+
+.dock .paper-wrapper svg.paper {
+  display: block;
+  width: var(--paper-size);
+  height: var(--paper-size);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.14));
+  pointer-events: none;
+}
+
+.dock .paper-wrapper:nth-child(1) {
+  transform: rotate(-35deg) translateY(4.6rem) translateX(-2.7rem);
   z-index: 1;
 }
 
-.add-sheet--top {
-  background:
-    linear-gradient(
-      color-mix(in srgb, #e0c63a 38%, #ffe566) 0 28%,
-      #ffe566 28%
-    );
+.dock .paper-wrapper:nth-child(2) {
+  transform: rotate(-25deg) translateY(2.5rem) translateX(-1.6rem);
+  z-index: 2;
 }
 
-.add-note:hover .add-sheet,
-.add-note:focus-visible .add-sheet {
-  transform:
-    translate(calc(var(--layer) * -5px), calc(var(--layer) * -7px))
-    rotate(calc(5deg - var(--layer) * 3deg));
+.dock .paper-wrapper:nth-child(3) {
+  transform: rotate(-15deg) translateY(1.55rem) translateX(-0.55rem);
+  z-index: 3;
 }
 
-.add-note:focus-visible {
-  outline: none;
+.dock .paper-wrapper:nth-child(4),
+.dock .paper-wrapper--top {
+  --x: 0px;
+  --y: 0px;
+  z-index: 4;
+  margin-top: 1.1rem;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  transform: translate(var(--x), var(--y));
 }
 
-.add-note:focus-visible .add-sheet--top {
+.dock-wrapper:not(.dragging) .paper-wrapper:nth-child(4):hover,
+.dock-wrapper:not(.dragging) .paper-wrapper--top:focus-visible {
+  margin-top: 0.45rem;
+}
+
+.dock-wrapper:not(.dragging) .paper-wrapper--top:focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: 3px;
+  outline-offset: 4px;
 }
 
-.add-note.is-drawing .add-sheet--top {
-  opacity: 0;
-  transition: opacity 0.12s ease;
+.dock:not(.dragging) .paper-wrapper {
+  transition: none;
 }
 
-.add-note.is-drawing .add-sheet[data-layer="1"] {
-  transform: translate(-2px, -2px) rotate(6deg);
+.dock.dragging .paper-wrapper {
+  transition: transform 0.4s ease, margin 0.4s ease;
 }
 
-.note-flyer {
-  position: fixed;
-  z-index: 40;
-  width: 15rem;
-  height: 15rem;
-  margin: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      color-mix(in srgb, var(--band, #e0c63a) 38%, var(--paper, #ffe566)) 0 2.4rem,
-      var(--paper, #ffe566) 2.4rem
-    );
-  box-shadow: none;
-  transform: translate(-50%, -50%) rotate(8deg) scale(0.22);
-  transition:
-    left 0.55s cubic-bezier(0.22, 0.8, 0.28, 1),
-    top 0.55s cubic-bezier(0.22, 0.8, 0.28, 1),
-    transform 0.55s cubic-bezier(0.22, 0.8, 0.28, 1);
-  will-change: left, top, transform;
+.dock.dragging .paper-wrapper:nth-child(4),
+.dock.dragging .paper-wrapper--top {
+  cursor: grabbing;
+  transition: none;
 }
 
-.note-flyer.is-flying {
-  transform: translate(-50%, -50%) rotate(0deg) scale(2);
+.dock:not(.out) .paper-wrapper:nth-child(4),
+.dock:not(.out) .paper-wrapper--top {
+  transition: transform 0.4s ease, margin 0.4s ease;
 }
 
-.note.is-spawned {
-  animation: none;
+.dock.dragging .paper-wrapper:nth-child(4),
+.dock.dragging .paper-wrapper--top,
+.dock.out .paper-wrapper:nth-child(4),
+.dock.out .paper-wrapper--top {
+  transition: none;
+}
+
+.dock.dragging.out .paper-wrapper:nth-child(3) {
+  transform: rotate(0deg) translateY(0) translateX(0);
+  z-index: 3;
+}
+
+.dock.dragging.out .paper-wrapper:nth-child(2) {
+  transform: rotate(-15deg) translateY(1.55rem) translateX(-0.55rem);
+}
+
+.dock.dragging.out .paper-wrapper:nth-child(1) {
+  transform: rotate(-25deg) translateY(2.5rem) translateX(-1.6rem);
+}
+
+/* Drop settle: jump stack to rest poses — no “next sheet returns to fan” animation. */
+.dock.is-settling .paper-wrapper,
+.dock-wrapper.is-settling .paper-wrapper {
+  transition: none !important;
 }
 
 @media (max-width: 640px) {
-  .note-flyer {
-    width: 13.25rem;
-    height: 13.25rem;
+  .dock-wrapper {
+    --dock-w: 14.5rem;
+    --dock-h: 5.75rem;
+    --paper-size: 6.25rem;
   }
 }
 
 .reset {
   position: fixed;
-  left: max(1.2rem, env(safe-area-inset-left));
-  bottom: max(1.2rem, env(safe-area-inset-bottom));
+  right: max(1.2rem, env(safe-area-inset-right));
+  top: max(0.95rem, env(safe-area-inset-top));
   z-index: 30;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: rgba(24, 58, 104, 0.42);
+  height: calc(2.35rem + 0.4rem);
+  padding: 0 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ffffff 58%, transparent);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, #ffffff 52%, transparent),
+      color-mix(in srgb, #ffffff 18%, transparent) 45%,
+      color-mix(in srgb, #ffffff 28%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset 0 -0.5px 0 color-mix(in srgb, #000000 8%, transparent),
+    0 10px 28px -14px rgba(0, 0, 0, 0.28),
+    0 2px 8px -4px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(22px) saturate(185%);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
   font-family: Caveat, cursive;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
+  transition: color 0.28s ease;
 }
 
 .reset:hover,
@@ -429,17 +746,552 @@ body {
 
 .reset:focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: 4px;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .reset {
+    border-color: color-mix(in srgb, #ffffff 18%, transparent);
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in srgb, #ffffff 16%, transparent),
+        color-mix(in srgb, #ffffff 6%, transparent) 45%,
+        color-mix(in srgb, #000000 22%, transparent)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent),
+      inset 0 -0.5px 0 color-mix(in srgb, #000000 35%, transparent),
+      0 12px 30px -14px rgba(0, 0, 0, 0.55),
+      0 2px 8px -4px rgba(0, 0, 0, 0.35);
+    color: color-mix(in srgb, var(--ink) 62%, transparent);
+  }
+}
+
+.view-toggle {
+  --view-toggle-pad: 0.2rem;
+  --view-toggle-btn: 2.35rem;
+  position: fixed;
+  right: calc(max(1.2rem, env(safe-area-inset-right)) + 7.15rem);
+  top: max(0.95rem, env(safe-area-inset-top));
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  isolation: isolate;
+  width: calc(var(--view-toggle-btn) * 2 + var(--view-toggle-pad) * 2);
+  height: calc(var(--view-toggle-btn) + var(--view-toggle-pad) * 2);
+  padding: var(--view-toggle-pad);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ffffff 58%, transparent);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, #ffffff 52%, transparent),
+      color-mix(in srgb, #ffffff 18%, transparent) 45%,
+      color-mix(in srgb, #ffffff 28%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 75%, transparent),
+    inset 0 -0.5px 0 color-mix(in srgb, #000000 8%, transparent),
+    0 10px 28px -14px rgba(0, 0, 0, 0.28),
+    0 2px 8px -4px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(22px) saturate(185%);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.view-toggle-thumb {
+  position: absolute;
+  top: var(--view-toggle-pad);
+  left: var(--view-toggle-pad);
+  width: var(--view-toggle-btn);
+  height: var(--view-toggle-btn);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ffffff 70%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #ffffff 82%, transparent),
+      color-mix(in srgb, #ffffff 42%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 90%, transparent),
+    0 4px 14px -6px rgba(0, 0, 0, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.38s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+
+.view-toggle.is-stack .view-toggle-thumb {
+  transform: translateX(100%);
+}
+
+.view-toggle-btn {
+  position: relative;
+  z-index: 1;
+  width: var(--view-toggle-btn);
+  height: var(--view-toggle-btn);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.28s ease;
+}
+
+.view-toggle-btn .material-symbols-outlined {
+  font-size: 1.28rem;
+}
+
+.view-toggle-btn[aria-pressed="true"],
+.view-toggle-btn:hover,
+.view-toggle-btn:focus-visible {
+  color: var(--ink);
+}
+
+.view-toggle-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .view-toggle {
+    border-color: color-mix(in srgb, #ffffff 18%, transparent);
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in srgb, #ffffff 16%, transparent),
+        color-mix(in srgb, #ffffff 6%, transparent) 45%,
+        color-mix(in srgb, #000000 22%, transparent)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent),
+      inset 0 -0.5px 0 color-mix(in srgb, #000000 35%, transparent),
+      0 12px 30px -14px rgba(0, 0, 0, 0.55),
+      0 2px 8px -4px rgba(0, 0, 0, 0.35);
+    color: color-mix(in srgb, var(--ink) 62%, transparent);
+  }
+
+  .view-toggle-thumb {
+    border-color: color-mix(in srgb, #ffffff 22%, transparent);
+    background:
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, #ffffff 28%, transparent),
+        color-mix(in srgb, #ffffff 10%, transparent)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent),
+      0 6px 16px -6px rgba(0, 0, 0, 0.55),
+      0 1px 3px rgba(0, 0, 0, 0.28);
+  }
+}
+
+/* Unused in stack peel mode; kept on notes for structure compatibility. */
+.note-back {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  pointer-events: none;
+}
+
+body.is-stack-view .dock-wrapper {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(0.85rem);
+}
+
+body.is-stack-view .board {
+  cursor: default;
+}
+
+body.is-stack-view .note.is-stack-item {
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition:
+    transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.35s ease;
+  box-shadow:
+    0 1px 1px rgba(42, 36, 28, 0.06),
+    0 10px 22px -14px rgba(42, 36, 28, 0.32);
+}
+
+body.is-stack-view .note.is-stack-item:hover:not(:focus-within) {
+  --peel: 0;
+}
+
+body.is-stack-view .note.is-stack-front {
+  cursor: text;
+}
+
+/* Top adhesive band: click / drag peels like scroll. */
+.note-stack-grip {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  height: 2.4rem;
+  cursor: pointer;
+  touch-action: none;
+}
+
+body.is-stack-view .note.is-stack-front:not(:focus-within) .note-stack-grip {
+  display: block;
+}
+
+body.is-stack-view .note.is-stack-behind,
+body.is-stack-view .note.is-stack-gone {
+  pointer-events: none;
+}
+
+body.is-stack-view .note.is-stack-peeling,
+body.is-stack-view .note.is-stack-peeling-in {
+  pointer-events: none;
+  z-index: 300 !important;
+}
+
+/*
+ * Stack dismiss/restore — values from :root stack peel vars (see #peelLab).
+ */
+body.is-stack-view .note.is-stack-peeling {
+  --peel: 0;
+  box-shadow: none;
+  transform: translate(-50%, -50%)
+    translate(var(--stack-fly-x), var(--stack-fly-y))
+    scale(var(--stack-fly-scale)) !important;
+  transition:
+    transform var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    --peel calc(var(--stack-ms) * 0.97) cubic-bezier(0.4, 0, 0.2, 1);
+  animation: stack-dismiss-fade var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+body.is-stack-view .note.is-stack-peeling .note-sheet {
+  transform-origin: var(--stack-origin-x) var(--stack-origin-y);
+  animation:
+    stack-peel-distort-out var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards,
+    stack-corners-out var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+body.is-stack-view .note.is-stack-peeling::after {
+  opacity: 0;
+  filter: blur(34px);
+  transform: translate(44px, 90px);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition:
+    opacity var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    clip-path var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+body.is-stack-view .note.is-stack-peeling .note-paper::before {
+  opacity: 0;
+  transition: opacity calc(var(--stack-ms) * 0.85) ease;
+}
+
+body.is-stack-view .note.is-stack-peeling-in {
+  --peel: 0;
+  box-shadow:
+    0 1px 1px rgba(42, 36, 28, 0.06),
+    0 10px 22px -14px rgba(42, 36, 28, 0.32);
+  transform: translate(-50%, -50%) scale(1) !important;
+  transition:
+    transform var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    --peel calc(var(--stack-ms) * 0.97) cubic-bezier(0.4, 0, 0.2, 1);
+  animation: stack-appear-fade var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+body.is-stack-view .note.is-stack-peeling-in .note-sheet {
+  transform-origin: var(--stack-origin-x) var(--stack-origin-y);
+  animation:
+    stack-peel-distort-in var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards,
+    stack-corners-in var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+body.is-stack-view .note.is-stack-peeling-in::after {
+  opacity: 0.9;
+  filter: blur(10px);
+  transform: translate(0, 8px);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 100%, 4px 100%);
+  transition:
+    opacity var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    clip-path var(--stack-ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+body.is-stack-view .note.is-stack-peeling-in .note-paper::before {
+  opacity: 1;
+  transition: opacity calc(var(--stack-ms) * 0.85) ease;
+}
+
+body.is-stack-view .note.is-stack-peel-seed {
+  box-shadow: none !important;
+  transform: translate(-50%, -50%)
+    translate(var(--stack-fly-x), var(--stack-fly-y))
+    scale(var(--stack-fly-scale)) !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+body.is-stack-view .note.is-stack-peel-seed .note-sheet {
+  animation: none !important;
+  transform-origin: var(--stack-origin-x) var(--stack-origin-y);
+  transform: rotateX(var(--stack-rx)) skewY(var(--stack-sky)) skewX(var(--stack-skx))
+    rotateZ(var(--stack-rz)) !important;
+  clip-path: polygon(
+    var(--stack-tl-x) var(--stack-tl-y),
+    var(--stack-tr-x) var(--stack-tr-y),
+    var(--stack-br-x) var(--stack-br-y),
+    var(--stack-bl-x) var(--stack-bl-y)
+  ) !important;
+}
+
+body.is-stack-view .note.is-stack-peel-seed::after {
+  opacity: 0 !important;
+  filter: blur(34px) !important;
+  transform: translate(44px, 90px) !important;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%) !important;
+  transition: none !important;
+}
+
+body.is-stack-view .note.is-stack-peel-seed .note-paper::before {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+@keyframes stack-dismiss-fade {
+  0%,
+  28% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes stack-appear-fade {
+  0% {
+    opacity: 0;
+  }
+  35%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes stack-peel-distort-out {
+  0% {
+    transform: rotateX(0deg) skewY(0deg) skewX(0deg) rotateZ(0deg);
+  }
+  100% {
+    transform: rotateX(var(--stack-rx)) skewY(var(--stack-sky)) skewX(var(--stack-skx))
+      rotateZ(var(--stack-rz));
+  }
+}
+
+@keyframes stack-peel-distort-in {
+  0% {
+    transform: rotateX(var(--stack-rx)) skewY(var(--stack-sky)) skewX(var(--stack-skx))
+      rotateZ(var(--stack-rz));
+  }
+  100% {
+    transform: rotateX(0deg) skewY(0deg) skewX(0deg) rotateZ(0deg);
+  }
+}
+
+@keyframes stack-corners-out {
+  0% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+  100% {
+    clip-path: polygon(
+      var(--stack-tl-x) var(--stack-tl-y),
+      var(--stack-tr-x) var(--stack-tr-y),
+      var(--stack-br-x) var(--stack-br-y),
+      var(--stack-bl-x) var(--stack-bl-y)
+    );
+  }
+}
+
+@keyframes stack-corners-in {
+  0% {
+    clip-path: polygon(
+      var(--stack-tl-x) var(--stack-tl-y),
+      var(--stack-tr-x) var(--stack-tr-y),
+      var(--stack-br-x) var(--stack-br-y),
+      var(--stack-bl-x) var(--stack-bl-y)
+    );
+  }
+  100% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+}
+
+/* —— Stack peel lab (dev controls; hidden for now) —— */
+.peel-lab {
+  display: none;
+  position: fixed;
+  left: max(0.75rem, env(safe-area-inset-left));
+  top: max(0.75rem, env(safe-area-inset-top));
+  z-index: 40;
+  width: min(19.5rem, calc(100vw - 1.5rem));
+  max-height: min(70dvh, 32rem);
+  overflow: auto;
+  border: 1px solid var(--dock-border);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--dock) 92%, transparent);
+  color: var(--ink);
+  box-shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.28);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  backdrop-filter: blur(10px);
+}
+
+.peel-lab summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  font-family: Caveat, cursive;
+  font-size: 1.15rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.peel-lab summary::-webkit-details-marker {
+  display: none;
+}
+
+.peel-lab summary .material-symbols-outlined {
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+
+.peel-lab-body {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid var(--dock-border);
+  padding-top: 0.65rem;
+}
+
+.peel-lab fieldset {
+  margin: 0;
+  padding: 0.45rem 0.5rem 0.55rem;
+  border: 1px solid var(--dock-border);
+  border-radius: 0.55rem;
+}
+
+.peel-lab legend {
+  padding: 0 0.3rem;
+  opacity: 0.65;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.peel-lab label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.peel-lab label span:first-child {
+  grid-column: 1 / -1;
+  opacity: 0.8;
+}
+
+.peel-lab label.is-dirty span:first-child {
+  opacity: 1;
+}
+
+.peel-lab label.is-changed span:first-child {
+  color: #b45309;
+  opacity: 1;
+}
+
+.peel-lab input[type="range"] {
+  width: 100%;
+  accent-color: color-mix(in srgb, var(--ink) 70%, #c4a574);
+}
+
+.peel-lab output {
+  min-width: 3.2rem;
+  text-align: right;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.peel-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.peel-lab-actions button {
+  flex: 1;
+  min-width: 5.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--dock-border);
+  border-radius: 0.55rem;
+  background: var(--dock);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.peel-lab-actions button:hover,
+.peel-lab-actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--dock-border));
+}
+
+.peel-lab-actions button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+body.is-stack-view .note:focus-within {
+  transform: translate(-50%, -50%) scale(1.5) !important;
+  box-shadow:
+    0 1px 1px rgba(42, 36, 28, 0.06),
+    0 16px 28px -12px rgba(42, 36, 28, 0.36);
+}
+
+body.is-stack-view .note:focus-within .note-sheet {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.is-stack-view .note.is-stack-item,
+  body.is-stack-view .note.is-stack-peeling,
+  body.is-stack-view .note.is-stack-peeling-in,
+  body.is-stack-view .note.is-stack-peeling .note-sheet,
+  body.is-stack-view .note.is-stack-peeling-in .note-sheet {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 @keyframes place {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.82);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -461,26 +1313,35 @@ body {
   }
 
   .note-paper {
-    padding: 2.55rem 1.05rem 1rem;
+    padding: 2.55rem 1.05rem 1.7rem;
+  }
+
+  .note-source {
+    left: 1rem;
+    bottom: 0.45rem;
+    width: calc(100% - 3.1rem);
+    font-size: 0.88rem;
+  }
+
+  .note-delete {
+    right: 0.55rem;
+    bottom: 0.3rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .board::before,
   .world::before,
+  .world::after,
   .note,
   .note::after,
-  .add-note,
-  .note-flyer {
+  .note-sheet,
+  .dock-wrapper,
+  .dock .paper-wrapper {
     animation: none;
     transition: none;
   }
 
   .note {
-    transition: none;
-  }
-
-  .add-sheet {
     transition: none;
   }
 }
